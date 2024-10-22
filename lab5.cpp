@@ -2,8 +2,6 @@
 #include <string>
 #include <io.h>
 #include <fcntl.h>
-#include <vector>
-#include <unordered_map>
 #include <algorithm>
 constexpr int N = 5, GOOD_GRADE = 4, BAD_GRADE = 2;
 struct student
@@ -12,7 +10,56 @@ struct student
 	int group = 0;
 	int marks[N]{};
 };
-
+static void sort_students(int n, student* a)
+{
+	int i, j, min_idx;
+	for (i = 0; i < n - 1; i++)
+	{
+		min_idx = i;
+		for (j = i + 1; j < n; j++)
+		{
+			if (a[j].group < a[min_idx].group)
+			{
+				min_idx = j;
+			}
+		}
+		std::swap(a[min_idx], a[i]);
+	}
+}
+static void sort_grades(int n, std::pair<student, int>* a)
+{
+	int i, j, min_idx;
+	for (i = 0; i < n - 1; i++)
+	{
+		min_idx = i;
+		for (j = i + 1; j < n; j++)
+		{
+			if (a[j].second > a[min_idx].second)
+			{
+				min_idx = j;
+			}
+		}
+		std::swap(a[min_idx], a[i]);
+	}
+}
+static void sort_groups(int cnt, int n, int* a)
+{
+	int i, j, min_idx;
+	for (i = 0; i < cnt - 1; i++)
+	{
+		min_idx = i;
+		for (j = i + 1; j < cnt; j++)
+		{
+			if (a[2 * n + j] > a[2 * n + min_idx])
+			{
+				min_idx = j;
+			}
+		}
+		std::swap(a[min_idx], a[i]);
+		std::swap(a[n + min_idx], a[n + i]);
+		std::swap(a[2 * n + min_idx], a[2 * n + i]);
+	}
+}
 int main()
 {
 	if (!(_setmode(_fileno(stdout), _O_U8TEXT) && _setmode(_fileno(stdin), _O_U16TEXT) && _setmode(_fileno(stderr), _O_U8TEXT)))
@@ -20,8 +67,10 @@ int main()
 	int n;
 	std::wcin >> n;
 	student* students = new student[n];
-	std::vector<std::pair<student, int>> good_grades(0);
-	std::unordered_map<int, std::pair<int, int>> groups(0);
+	std::pair<student, int>* good_grades = new std::pair<student, int>[n];
+	int grade_cnt = 0;
+	int* groups = new int[3 * n];
+	int group_cnt = 0;
 	for (int i = 0; i < n; i++)
 	{
 		while (students[i].name.length() == 0)
@@ -40,49 +89,47 @@ int main()
 				has_bad_grades = true;
 			}
 		}
-		if (groups.find(students[i].group) == groups.end())
+		int* group_idx = std::find(groups, groups + group_cnt, students[i].group);
+		if (group_idx == groups + group_cnt)
 		{
-			groups[students[i].group] = std::make_pair(1, has_bad_grades);
+			groups[group_cnt] = students[i].group;
+			groups[n + group_cnt] = 1;
+			groups[2 * n + group_cnt++] = has_bad_grades;
 		}
 		else
 		{
-			groups[students[i].group].first++;
-			groups[students[i].group].second += has_bad_grades;
+			int group_idx_int = group_idx - groups;
+			groups[n + group_idx_int] += 1;
+			groups[2 * n + group_idx_int] += has_bad_grades;
 		}
 		if (sum > N * GOOD_GRADE)
 		{
-			good_grades.push_back(std::make_pair(students[i], sum));
+			good_grades[grade_cnt++] = std::make_pair(students[i], sum);
 		}
 	}
-	std::vector<std::tuple<int, int, int>> groupsv(groups.size());
-	int i = 0;
-	for (auto kv : groups)
-	{
-		groupsv[i++] = std::make_tuple(kv.first, kv.second.first, kv.second.second);
-	}
-	std::sort(students, students+n, [](student a, student b) {return a.group < b.group; });
-	std::sort(good_grades.begin(), good_grades.end(), [](std::pair<student, int> a, std::pair<student, int> b) {return a.second > b.second; });
-	std::sort(groupsv.begin(), groupsv.end(), [](std::tuple<int, int, int> a, std::tuple<int, int, int> b) {return std::get<2>(a) > std::get<2>(b); });
-	for (int i = 0; i < n; i++)
-	{
-		std::wcout << students[i].group << L" - " << students[i].name << ": ";
-		for (int j = 0; j < N; j++)
+	sort_students(n, students);
+	sort_grades(grade_cnt, good_grades);
+	sort_groups(group_cnt, n, groups);
+		for (int i = 0; i < n; i++)
 		{
-			std::wcout << students[i].marks[j];
-			if (j < N - 1)
+			std::wcout << students[i].group << L" - " << students[i].name << ": ";
+			for (int j = 0; j < N; j++)
 			{
-				std::wcout << ", ";
+				std::wcout << students[i].marks[j];
+				if (j < N - 1)
+				{
+					std::wcout << ", ";
+				}
 			}
+			std::wcout << '\n';
 		}
-		std::wcout << '\n';
-	}
-	for (int i = 0; i < good_grades.size(); i++)
+	for (int i = 0; i < grade_cnt; i++)
 	{
 		std::wcout << good_grades[i].first.group << L", " << good_grades[i].first.name << " - " << (double)(good_grades[i].second) / N << '\n';
 	}
-	for (int i = 0; i < groupsv.size(); i++)
+	for (int i = 0; i < group_cnt; i++)
 	{
-		std::wcout << std::get<0>(groupsv[i]) << L" - " << std::get<1>(groupsv[i]) << " - " << std::get<2>(groupsv[i]) << '\n';
+		std::wcout << groups[i] << L" - " << groups[n + i] << " - " << groups[2 * n + i] << '\n';
 	}
 	delete[] students;
 	return 0;
